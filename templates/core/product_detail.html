@@ -1,0 +1,101 @@
+<!-- templates/core/product_detail.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+        {% else %}
+            <img src="{% static 'images/no-image.png' %}" alt="{{ product.name }}" class="img-fluid rounded">
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <h2>{{ product.name }}</h2>
+        <p class="text-muted">{{ product.brand }}</p>
+        
+        <div class="mb-3">
+            {% for i in "12345" %}
+                {% if forloop.counter <= product.average_rating %}
+                    <i class="fas fa-star text-warning"></i>
+                {% else %}
+                    <i class="far fa-star text-warning"></i>
+                {% endif %}
+            {% endfor %}
+            <span class="ml-2">({{ product.reviews.count }} reviews)</span>
+        </div>
+        
+        <p class="h3 text-primary mb-4">Rs. {{ product.price }}</p>
+        
+        <div class="mb-4">
+            <h5>Model No: {{ product.model_no }}</h5>
+            <h5>Category: <a href="{% url 'product_list_by_category' product.category.slug %}">{{ product.category.name }}</a></h5>
+            <h5>Stock: {% if product.stock > 0 %}{{ product.stock }} Available{% else %}Out of Stock{% endif %}</h5>
+        </div>
+        
+        <div class="mb-4">
+            <h5>Description:</h5>
+            <p>{{ product.description }}</p>
+        </div>
+        
+        {% if product.stock > 0 %}
+            <form method="post" action="{% url 'add_to_cart' product.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                </button>
+            </form>
+        {% else %}
+            <button class="btn btn-secondary btn-lg" disabled>Out of Stock</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Product Reviews</h4>
+            </div>
+            <div class="card-body">
+                {% if user.is_authenticated and not user_has_reviewed and product.stock > 0 %}
+                    <h5>Add Your Review</h5>
+                    <form method="post" action="{% url 'add_review' product.id %}">
+                        {% csrf_token %}
+                        {{ review_form|crispy }}
+                        <button type="submit" class="btn btn-primary mt-3">Submit Review</button>
+                    </form>
+                    <hr>
+                {% endif %}
+                
+                <h5>Customer Reviews</h5>
+                {% for review in reviews %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between">
+                            <h6>{{ review.user.username }}</h6>
+                            <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <div>
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= review.rating %}
+                                    <i class="fas fa-star text-warning"></i>
+                                {% else %}
+                                    <i class="far fa-star text-warning"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <p class="mt-2">{{ review.comment }}</p>
+                        {% if not forloop.last %}<hr>{% endif %}
+                    </div>
+                {% empty %}
+                    <p>No reviews yet. Be the first to review this product!</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

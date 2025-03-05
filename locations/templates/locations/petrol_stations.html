@@ -1,0 +1,448 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Nearby Petrol Stations{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Find Nearby Petrol Stations</h2>
+        <div class="alert alert-success py-1 px-3 mb-0" id="location-status">
+            <i class="fas fa-check-circle"></i> Location found! Showing nearby petrol stations.
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-3" style="height: calc(100vh - 180px); overflow-y: auto;">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Nearby Stations</h5>
+                </div>
+                <div class="list-group list-group-flush" id="stations-list">
+                    <!-- Stations will be dynamically added here -->
+                    <div class="p-3 text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <p class="mt-2">Finding nearby stations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Map</h5>
+                    <button id="debug-btn" class="btn btn-sm btn-light">Debug Info</button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: calc(100vh - 180px); width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Debug Modal -->
+<div class="modal fade" id="debugModal" tabindex="-1" role="dialog" aria-labelledby="debugModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="debugModalLabel">Debug Information</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="debug-info"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<style>
+    .station-item {
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+        margin-bottom: 0;
+        border-radius: 0;
+    }
+    .station-item:hover {
+        background-color: #f8f9fa;
+    }
+    .station-item.active {
+        border-left-color: #4e73df;
+        background-color: #f8f9fa;
+    }
+    .distance-badge {
+        font-size: 0.8rem;
+        background-color: #f0f0f0;
+        color: #333;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    
+    /* Fix for routing control container */
+    .leaflet-routing-container {
+        max-height: 320px;
+        overflow-y: auto;
+        background-color: white;
+        padding: 6px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        border-radius: 4px;
+        width: 320px;
+    }
+    
+    /* Make route button more visible */
+    .route-btn {
+        width: 100%;
+        margin-top: 5px;
+        text-align: center;
+    }
+</style>
+
+<script>
+    // Initialize variables
+    let map, userMarker, routingControl;
+    let currentLat, currentLng;
+    let stationMarkers = {}; // Store markers by station ID
+    let stationsData = []; // Store all station data
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the map and request location
+        getUserLocation();
+        
+        // Set up debug button
+        document.getElementById('debug-btn').addEventListener('click', function() {
+            $('#debugModal').modal('show');
+            document.getElementById('debug-info').innerHTML = JSON.stringify({
+                map: map ? 'initialized' : 'not initialized',
+                userLocation: userMarker ? [currentLat, currentLng] : 'not set',
+                routingControl: routingControl ? 'active' : 'not active',
+                stationMarkers: Object.keys(stationMarkers).length + ' markers',
+                stationsData: stationsData.length + ' stations',
+                windowSize: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                }
+            }, null, 2);
+        });
+    });
+    
+    // Get user's location
+    function getUserLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // Success
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    
+                    // Initialize map with user location
+                    initMap(currentLat, currentLng);
+                    
+                    // Update status
+                    document.getElementById('location-status').innerHTML = 
+                        '<i class="fas fa-check-circle"></i> Location found! Showing nearby petrol stations.';
+                    
+                    // Find nearby stations
+                    findNearbyPetrolStations(currentLat, currentLng);
+                },
+                function(error) {
+                    // Error
+                    console.error("Geolocation error:", error);
+                    document.getElementById('location-status').innerHTML = 
+                        '<i class="fas fa-exclamation-triangle"></i> Could not get your location. Using default position.';
+                    document.getElementById('location-status').className = 'alert alert-warning py-1 px-3 mb-0';
+                    
+                    // Use default location (e.g., center of Kathmandu)
+                    currentLat = 27.7172;
+                    currentLng = 85.3240;
+                    initMap(currentLat, currentLng);
+                    findNearbyPetrolStations(currentLat, currentLng);
+                }
+            );
+        } else {
+            // Browser doesn't support geolocation
+            document.getElementById('location-status').innerHTML = 
+                '<i class="fas fa-exclamation-triangle"></i> Your browser does not support geolocation.';
+            document.getElementById('location-status').className = 'alert alert-danger py-1 px-3 mb-0';
+            
+            // Use default location
+            currentLat = 27.7172;
+            currentLng = 85.3240;
+            initMap(currentLat, currentLng);
+            findNearbyPetrolStations(currentLat, currentLng);
+        }
+    }
+    
+    // Initialize map
+    function initMap(lat, lng) {
+        // Create map centered at user location
+        map = L.map('map').setView([lat, lng], 14);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add user marker
+        userMarker = L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map);
+        
+        userMarker.bindPopup('Your Location').openPopup();
+        
+        // Make map responsive to window size changes
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+        });
+    }
+    
+    // Find nearby petrol stations
+    function findNearbyPetrolStations(lat, lng) {
+        // Query for petrol stations using Overpass API
+        const radius = 5000; // 5km radius
+        const overpassUrl = "https://overpass-api.de/api/interpreter";
+        const overpassQuery = `
+            [out:json];
+            (
+              node["amenity"="fuel"](around:${radius},${lat},${lng});
+              way["amenity"="fuel"](around:${radius},${lat},${lng});
+              relation["amenity"="fuel"](around:${radius},${lat},${lng});
+            );
+            out center;
+        `;
+        
+        // Make API request
+        fetch(overpassUrl, {
+            method: 'POST',
+            body: overpassQuery,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.elements || data.elements.length === 0) {
+                document.getElementById('stations-list').innerHTML = 
+                    '<div class="list-group-item">No petrol stations found nearby. Try increasing the search radius.</div>';
+                return;
+            }
+            
+            // Clear existing markers
+            for (const id in stationMarkers) {
+                map.removeLayer(stationMarkers[id]);
+            }
+            stationMarkers = {};
+            
+            // Process stations
+            stationsData = data.elements.map(element => {
+                // Get coordinates
+                let stationLat, stationLng;
+                if (element.type === 'node') {
+                    stationLat = element.lat;
+                    stationLng = element.lon;
+                } else if (element.center) {
+                    stationLat = element.center.lat;
+                    stationLng = element.center.lon;
+                } else {
+                    return null;
+                }
+                
+                // Get station details
+                const name = element.tags?.name || 'Unnamed Station';
+                const brand = element.tags?.brand || '';
+                
+                // Calculate distance
+                const distance = calculateDistance(lat, lng, stationLat, stationLng);
+                
+                return {
+                    id: element.id,
+                    name: name,
+                    brand: brand,
+                    lat: stationLat,
+                    lng: stationLng,
+                    distance: distance
+                };
+            })
+            .filter(station => station !== null)
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 10); // Limit to 10 closest stations
+            
+            // Add station markers to map
+            stationsData.forEach(station => {
+                const marker = L.marker([station.lat, station.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <strong>${station.name}</strong>
+                    ${station.brand ? `<br>Brand: ${station.brand}` : ''}
+                    <br>Distance: ${station.distance.toFixed(2)} km
+                    <br><button class="btn btn-sm btn-primary mt-2" onclick="showRouteFromPopup(${station.id})">Show Route</button>
+                `);
+                
+                // Store marker reference
+                stationMarkers[station.id] = marker;
+                
+                // Add click event to marker
+                marker.on('click', function() {
+                    // Highlight corresponding list item
+                    const stationItem = document.getElementById(`station-${station.id}`);
+                    if (stationItem) {
+                        document.querySelectorAll('.station-item').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        stationItem.classList.add('active');
+                        stationItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            });
+            
+            // Render the stations list
+            renderStationsList();
+        })
+        .catch(error => {
+            console.error('Error fetching petrol stations:', error);
+            document.getElementById('stations-list').innerHTML = 
+                '<div class="list-group-item text-danger">Error loading petrol stations. Please try again later.</div>';
+        });
+    }
+    
+    // Render the stations list with current stationsData
+    function renderStationsList() {
+        const stationsList = document.getElementById('stations-list');
+        stationsList.innerHTML = '';
+        
+        if (stationsData.length === 0) {
+            stationsList.innerHTML = '<div class="list-group-item">No petrol stations found nearby.</div>';
+            return;
+        }
+        
+        stationsData.forEach(station => {
+            const item = document.createElement('div');
+            item.id = `station-${station.id}`;
+            item.className = 'list-group-item station-item';
+            
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${station.name}</strong>
+                        ${station.brand ? `<div class="text-muted small">${station.brand}</div>` : ''}
+                    </div>
+                    <span class="distance-badge">${station.distance.toFixed(2)} km</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary route-btn" onclick="showRoute(${station.id})">Show Route</button>
+            `;
+            
+            stationsList.appendChild(item);
+        });
+    }
+    
+    // Show route by station ID
+    function showRoute(stationId) {
+        // Find the station by ID
+        const station = stationsData.find(s => s.id === stationId);
+        if (!station) return;
+        
+        // Highlight the selected station in the list
+        document.querySelectorAll('.station-item').forEach(el => {
+            el.classList.remove('active');
+        });
+        const stationElement = document.getElementById(`station-${stationId}`);
+        if (stationElement) {
+            stationElement.classList.add('active');
+        }
+        
+        // Open the station's popup
+        stationMarkers[stationId].openPopup();
+        
+        // Show the route
+        showRouteToCoordinates(station.lat, station.lng);
+    }
+    
+    // For clicking "Show Route" from within a popup
+    function showRouteFromPopup(stationId) {
+        // Find the station element and highlight it
+        const stationElement = document.getElementById(`station-${stationId}`);
+        if (stationElement) {
+            document.querySelectorAll('.station-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            stationElement.classList.add('active');
+            stationElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Find the station data
+        const station = stationsData.find(s => s.id === stationId);
+        if (station) {
+            showRouteToCoordinates(station.lat, station.lng);
+        }
+    }
+    
+    // Show route between current location and coordinates
+    function showRouteToCoordinates(toLat, toLng) {
+        // Remove existing route if any
+        if (routingControl) {
+            map.removeControl(routingControl);
+        }
+        
+        // Create new route
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(currentLat, currentLng),
+                L.latLng(toLat, toLng)
+            ],
+            routeWhileDragging: false,
+            lineOptions: {
+                styles: [{color: '#4e73df', opacity: 0.7, weight: 5}]
+            },
+            createMarker: function() { return null; }, // Don't create additional markers
+            show: false // Don't show the instructions panel by default
+        }).addTo(map);
+    }
+    
+    // Calculate distance between two points
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c;
+    }
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+</script>
+{% endblock %}

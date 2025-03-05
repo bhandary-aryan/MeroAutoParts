@@ -1,0 +1,199 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .dashboard-container {
+        padding: 20px;
+    }
+    
+    .stats-row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        flex: 1;
+        min-width: 200px;
+        margin: 10px;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-card h3 {
+        margin-top: 0;
+        color: #666;
+        font-size: 16px;
+    }
+    
+    .stat-card .count {
+        font-size: 36px;
+        font-weight: bold;
+    }
+    
+    .stat-card.orders { border-left: 4px solid #27ae60; }
+    .stat-card.orders .count { color: #27ae60; }
+    
+    .stat-card.products { border-left: 4px solid #e74c3c; }
+    .stat-card.products .count { color: #e74c3c; }
+    
+    .stat-card.users { border-left: 4px solid #f39c12; }
+    .stat-card.users .count { color: #f39c12; }
+    
+    .stat-card.revenue { border-left: 4px solid #8e44ad; }
+    .stat-card.revenue .count { color: #8e44ad; }
+    
+    .card {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: bold;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    table.recent-orders, table.top-products {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    table.recent-orders th, table.top-products th,
+    table.recent-orders td, table.top-products td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    table.recent-orders th, table.top-products th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .status-pending { background-color: #f39c12; }
+    .status-processing { background-color: #3498db; }
+    .status-shipped { background-color: #2980b9; }
+    .status-delivered { background-color: #27ae60; }
+    .status-cancelled { background-color: #e74c3c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h1>Dashboard</h1>
+    
+    <div class="stats-row">
+        <div class="stat-card orders">
+            <h3>Total Orders</h3>
+            <div class="count">{{ order_count }}</div>
+        </div>
+        <div class="stat-card products">
+            <h3>Total Products</h3>
+            <div class="count">{{ product_count }}</div>
+        </div>
+        <div class="stat-card users">
+            <h3>Registered Users</h3>
+            <div class="count">{{ user_count }}</div>
+        </div>
+        <div class="stat-card revenue">
+            <h3>Total Revenue</h3>
+            <div class="count">Rs. {{ total_revenue }}</div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Recent Orders</div>
+                <div class="card-body">
+                    <table class="recent-orders">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>{{ order.id }}</td>
+                                <td>{{ order.full_name }}</td>
+                                <td>Rs. {{ order.total_amount }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ order.status }}">
+                                        {{ order.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ order.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No orders yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top Selling Products</div>
+                <div class="card-body">
+                    <table class="top-products">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Units Sold</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.category.name }}</td>
+                                <td>Rs. {{ product.price }}</td>
+                                <td>{{ product.sold }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">No products sold yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

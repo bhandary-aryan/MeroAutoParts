@@ -1,0 +1,209 @@
+<!-- templates/core/product_list.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if category %}{{ category.name }}{% else %}All Products{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card mb-4" data-aos="fade-right">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Categories</h4>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{% url 'product_list' %}" class="list-group-item list-group-item-action {% if not category %}active{% endif %}">
+                    <i class="fas fa-tag mr-2"></i>All Products
+                </a>
+                {% for c in categories %}
+                    <a href="{{ c.get_absolute_url }}" class="list-group-item list-group-item-action {% if category.slug == c.slug %}active{% endif %}">
+                        {% if c.name == 'Bike Parts' %}
+                            <i class="fas fa-motorcycle mr-2"></i>
+                        {% elif c.name == 'Car Parts' %}
+                            <i class="fas fa-car mr-2"></i>
+                        {% elif c.name == 'Jeep Parts' %}
+                            <i class="fas fa-truck mr-2"></i>
+                        {% elif c.name == 'Bus Parts' %}
+                            <i class="fas fa-bus mr-2"></i>
+                        {% elif c.name == 'Truck Parts' %}
+                            <i class="fas fa-truck-moving mr-2"></i>
+                        {% else %}
+                            <i class="fas fa-cogs mr-2"></i>
+                        {% endif %}
+                        {{ c.name }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Filter Products card -->
+        <div class="card mb-4" data-aos="fade-right" data-aos-delay="100">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Filter Products</h4>
+            </div>
+            <div class="card-body">
+                <form method="get">
+                    <div class="form-group">
+                        <label for="brand"><i class="fas fa-industry mr-2"></i>Brand</label>
+                        <select name="brand" id="brand" class="form-control">
+                            <option value="">All Brands</option>
+                            {% for brand in all_brands %}
+                                <option value="{{ brand }}" {% if request.GET.brand == brand %}selected{% endif %}>{{ brand }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="price"><i class="fas fa-money-bill-wave mr-2"></i>Price Range</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ request.GET.min_price }}">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ request.GET.max_price }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-filter mr-2"></i>Apply Filters
+                    </button>
+                    <a href="{% if category %}{{ category.get_absolute_url }}{% else %}{% url 'product_list' %}{% endif %}" class="btn btn-outline-secondary btn-block mt-2">
+                        <i class="fas fa-undo mr-2"></i>Clear Filters
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="card mb-4" data-aos="fade-up">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    {% if category %}
+                        <i class="fas fa-tag mr-2"></i>{{ category.name }}
+                    {% else %}
+                        <i class="fas fa-boxes mr-2"></i>All Products
+                    {% endif %}
+                </h4>
+                <span class="badge badge-light">{{ products|length }} products</span>
+            </div>
+            
+            <!-- Add the search results alert here -->
+            {% if query %}
+                <div class="alert alert-info mt-3 mx-3">
+                    <i class="fas fa-search mr-2"></i>Search results for: <strong>{{ query }}</strong>
+                    <a href="{% url 'product_list' %}" class="float-right text-info">
+                        <i class="fas fa-times-circle"></i> Clear search
+                    </a>
+                </div>
+            {% endif %}
+            
+            <div class="card-body">
+                <div class="row">
+                    {% for product in products %}
+                        <div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter }}00">
+                            <div class="card h-100 shadow-sm product-card">
+                                {% if product.image %}
+                                    <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                                {% else %}
+                                    <img src="{% static 'images/no-image.png' %}" class="card-img-top" alt="{{ product.name }}">
+                                {% endif %}
+                                <div class="card-body">
+                                    <h5 class="card-title font-weight-bold text-truncate">{{ product.name }}</h5>
+                                    <p class="card-text text-muted mb-1">
+                                        <i class="fas fa-industry mr-1"></i>{{ product.brand }}
+                                    </p>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="price-tag">Rs. {{ product.price }}</span>
+                                        <div class="ratings">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= product.average_rating %}
+                                                    <i class="fas fa-star"></i>
+                                                {% else %}
+                                                    <i class="far fa-star"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <div class="btn-group d-flex mt-3">
+    <a href="{{ product.get_absolute_url }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-info-circle mr-1"></i>Details
+    </a>
+    <form method="post" action="{% url 'buy_now' product.id %}" class="m-0 flex-fill">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-sm w-100">
+            <i class="fas fa-shopping-cart mr-1"></i>Buy Now
+        </button>
+    </form>
+</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12 text-center py-5">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h4>No products found</h4>
+                            <p class="text-muted">Try adjusting your search or filter criteria.</p>
+                            <a href="{% url 'product_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-undo mr-2"></i>Reset Filters
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Product card styling */
+    .card-img-top {
+        height: 200px;
+        object-fit: contain;
+        padding: 15px;
+        transition: transform 0.3s ease;
+    }
+    
+    .product-card {
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    
+    .product-card:hover .card-img-top {
+        transform: scale(1.05);
+    }
+    
+    /* Price tag styling */
+    .price-tag {
+        background-color: #4e73df;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    /* Ratings styling */
+    .ratings {
+        color: #f6c23e;
+    }
+    
+    /* Button styling */
+    .btn-group {
+        gap: 5px;
+    }
+    
+    .btn-group .btn {
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}

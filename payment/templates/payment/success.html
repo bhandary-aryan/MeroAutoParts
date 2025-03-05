@@ -1,0 +1,30 @@
+<!-- payment/templates/payment/success.html -->
+{% extends 'core/base.html' %}
+
+{% block title %}Payment Successful{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Payment Successful!</h4>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 5rem;"></i>
+                    </div>
+                    <h4>Thank You for Your Payment</h4>
+                    <p>Your order #{{ order.id }} has been successfully processed.</p>
+                    <p>You will receive a confirmation email shortly.</p>
+                    <div class="mt-4">
+                        <a href="{% url 'order_detail' order.id %}" class="btn btn-primary">View Order Details</a>
+                        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary ml-2">Continue Shopping</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

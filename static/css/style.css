@@ -1,0 +1,75 @@
+/* Custom styles for MeroAutoParts */
+
+/* Product image normalization */
+.card-img-top {
+    height: 200px;
+    object-fit: contain;
+    padding: 15px;
+    background-color: #fff;
+    transition: transform 0.3s ease;
+}
+
+/* Animation effects */
+.product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Improved buttons */
+.product-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.product-buttons .btn, 
+.product-buttons form {
+    flex: 1;
+}
+
+.product-buttons form button {
+    width: 100%;
+}
+
+/* Star ratings */
+.ratings {
+    color: #f6c23e;
+}
+
+/* Price tag styling */
+.price-tag {
+    background-color: #4e73df;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* Category icons */
+.category-icon {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    line-height: 80px;
+    text-align: center;
+    border-radius: 50%;
+    background-color: rgba(78, 115, 223, 0.1);
+    margin-bottom: 15px;
+}
+
+/* Animation delay helper classes */
+.delay-1 {
+    animation-delay: 0.1s;
+}
+
+.delay-2 {
+    animation-delay: 0.2s;
+}
+
+.delay-3 {
+    animation-delay: 0.3s;
+}

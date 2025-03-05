@@ -1,0 +1,486 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Nearby Garages{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Find Nearby Garages</h2>
+        <div class="alert alert-success py-1 px-3 mb-0" id="location-status">
+            <i class="fas fa-check-circle"></i> Location found! Showing nearby garages.
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-3" style="height: calc(100vh - 180px); overflow-y: auto;">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Nearby Garages</h5>
+                </div>
+                <div class="list-group list-group-flush" id="garages-list">
+                    <!-- Garages will be dynamically added here -->
+                    <div class="p-3 text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <p class="mt-2">Finding nearby garages...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Map</h5>
+                    <button id="debug-btn" class="btn btn-sm btn-light">Debug Info</button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: calc(100vh - 180px); width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Debug Modal -->
+<div class="modal fade" id="debugModal" tabindex="-1" role="dialog" aria-labelledby="debugModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="debugModalLabel">Debug Information</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="debug-info"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<style>
+    .garage-item {
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+        margin-bottom: 0;
+        border-radius: 0;
+    }
+    .garage-item:hover {
+        background-color: #f8f9fa;
+    }
+    .garage-item.active {
+        border-left-color: #4e73df;
+        background-color: #f8f9fa;
+    }
+    .distance-badge {
+        font-size: 0.8rem;
+        background-color: #f0f0f0;
+        color: #333;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    
+    /* Fix for routing control container */
+    .leaflet-routing-container {
+        max-height: 320px;
+        overflow-y: auto;
+        background-color: white;
+        padding: 6px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        border-radius: 4px;
+        width: 320px;
+    }
+    
+    /* Style for route button */
+    .route-btn {
+        width: 100%;
+        margin-top: 5px;
+        text-align: center;
+    }
+    
+    /* Style for phone button */
+    .phone-btn {
+        color: #28a745;
+        cursor: pointer;
+        font-size: 1.2rem;
+        margin-left: 5px;
+    }
+    .phone-btn:hover {
+        color: #218838;
+    }
+</style>
+
+<script>
+    // Initialize variables
+    let map, userMarker, routingControl;
+    let currentLat, currentLng;
+    let garageMarkers = {}; // Store markers by garage ID
+    let garagesData = []; // Store all garage data
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the map and request location
+        getUserLocation();
+        
+        // Set up debug button
+        document.getElementById('debug-btn').addEventListener('click', function() {
+            $('#debugModal').modal('show');
+            document.getElementById('debug-info').innerHTML = JSON.stringify({
+                map: map ? 'initialized' : 'not initialized',
+                userLocation: userMarker ? [currentLat, currentLng] : 'not set',
+                routingControl: routingControl ? 'active' : 'not active',
+                garageMarkers: Object.keys(garageMarkers).length + ' markers',
+                garagesData: garagesData.length + ' garages',
+                windowSize: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                }
+            }, null, 2);
+        });
+    });
+    
+    // Get user's location
+    function getUserLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // Success
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    
+                    // Initialize map with user location
+                    initMap(currentLat, currentLng);
+                    
+                    // Update status
+                    document.getElementById('location-status').innerHTML = 
+                        '<i class="fas fa-check-circle"></i> Location found! Showing nearby garages.';
+                    
+                    // Find nearby garages
+                    findNearbyGarages(currentLat, currentLng);
+                },
+                function(error) {
+                    // Error
+                    console.error("Geolocation error:", error);
+                    document.getElementById('location-status').innerHTML = 
+                        '<i class="fas fa-exclamation-triangle"></i> Could not get your location. Using default position.';
+                    document.getElementById('location-status').className = 'alert alert-warning py-1 px-3 mb-0';
+                    
+                    // Use default location (e.g., center of Kathmandu)
+                    currentLat = 27.7172;
+                    currentLng = 85.3240;
+                    initMap(currentLat, currentLng);
+                    findNearbyGarages(currentLat, currentLng);
+                }
+            );
+        } else {
+            // Browser doesn't support geolocation
+            document.getElementById('location-status').innerHTML = 
+                '<i class="fas fa-exclamation-triangle"></i> Your browser does not support geolocation.';
+            document.getElementById('location-status').className = 'alert alert-danger py-1 px-3 mb-0';
+            
+            // Use default location
+            currentLat = 27.7172;
+            currentLng = 85.3240;
+            initMap(currentLat, currentLng);
+            findNearbyGarages(currentLat, currentLng);
+        }
+    }
+    
+    // Initialize map
+    function initMap(lat, lng) {
+        // Create map centered at user location
+        map = L.map('map').setView([lat, lng], 14);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add user marker
+        userMarker = L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map);
+        
+        userMarker.bindPopup('Your Location').openPopup();
+        
+        // Make map responsive to window size changes
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+        });
+    }
+    
+    // Find nearby garages
+    function findNearbyGarages(lat, lng) {
+        // Query for garages using Overpass API
+        const radius = 5000; // 5km radius
+        const overpassUrl = "https://overpass-api.de/api/interpreter";
+        const overpassQuery = `
+            [out:json];
+            (
+              node["shop"="car_repair"](around:${radius},${lat},${lng});
+              way["shop"="car_repair"](around:${radius},${lat},${lng});
+              node["amenity"="car_repair"](around:${radius},${lat},${lng});
+              way["amenity"="car_repair"](around:${radius},${lat},${lng});
+              node["craft"="car_repair"](around:${radius},${lat},${lng});
+              way["craft"="car_repair"](around:${radius},${lat},${lng});
+              node["service"="vehicle_repair"](around:${radius},${lat},${lng});
+              way["service"="vehicle_repair"](around:${radius},${lat},${lng});
+            );
+            out center;
+        `;
+        
+        // Make API request
+        fetch(overpassUrl, {
+            method: 'POST',
+            body: overpassQuery,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.elements || data.elements.length === 0) {
+                document.getElementById('garages-list').innerHTML = 
+                    '<div class="list-group-item">No garages found nearby. Try increasing the search radius.</div>';
+                return;
+            }
+            
+            // Clear existing markers
+            for (const id in garageMarkers) {
+                map.removeLayer(garageMarkers[id]);
+            }
+            garageMarkers = {};
+            
+            // Process garages
+            garagesData = data.elements.map(element => {
+                // Get coordinates
+                let garageLat, garageLng;
+                if (element.type === 'node') {
+                    garageLat = element.lat;
+                    garageLng = element.lon;
+                } else if (element.center) {
+                    garageLat = element.center.lat;
+                    garageLng = element.center.lon;
+                } else {
+                    return null;
+                }
+                
+                // Get garage details
+                const name = element.tags?.name || 'Unnamed Garage';
+                const phone = element.tags?.phone || element.tags?.['contact:phone'] || '';
+                
+                // Calculate distance
+                const distance = calculateDistance(lat, lng, garageLat, garageLng);
+                
+                return {
+                    id: element.id,
+                    name: name,
+                    phone: phone,
+                    lat: garageLat,
+                    lng: garageLng,
+                    distance: distance
+                };
+            })
+            .filter(garage => garage !== null)
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 10); // Limit to 10 closest garages
+            
+            // Add garage markers to map
+            garagesData.forEach(garage => {
+                const marker = L.marker([garage.lat, garage.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+                
+                let popupContent = `
+                    <strong>${garage.name}</strong>
+                    <br>Distance: ${garage.distance.toFixed(2)} km
+                `;
+                
+                if (garage.phone) {
+                    popupContent += `
+                        <br>Phone: <a href="tel:${garage.phone}">${garage.phone}</a>
+                    `;
+                }
+                
+                popupContent += `
+                    <br><button class="btn btn-sm btn-primary mt-2" onclick="showRouteFromPopup(${garage.id})">Show Route</button>
+                `;
+                
+                marker.bindPopup(popupContent);
+                
+                // Store marker reference
+                garageMarkers[garage.id] = marker;
+                
+                // Add click event to marker
+                marker.on('click', function() {
+                    // Highlight corresponding list item
+                    const garageItem = document.getElementById(`garage-${garage.id}`);
+                    if (garageItem) {
+                        document.querySelectorAll('.garage-item').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        garageItem.classList.add('active');
+                        garageItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            });
+            
+            // Render the garages list
+            renderGaragesList();
+        })
+        .catch(error => {
+            console.error('Error fetching garages:', error);
+            document.getElementById('garages-list').innerHTML = 
+                '<div class="list-group-item text-danger">Error loading garages. Please try again later.</div>';
+        });
+    }
+    
+    // Render the garages list with current garagesData
+    function renderGaragesList() {
+        const garagesList = document.getElementById('garages-list');
+        garagesList.innerHTML = '';
+        
+        if (garagesData.length === 0) {
+            garagesList.innerHTML = '<div class="list-group-item">No garages found nearby.</div>';
+            return;
+        }
+        
+        garagesData.forEach(garage => {
+            const item = document.createElement('div');
+            item.id = `garage-${garage.id}`;
+            item.className = 'list-group-item garage-item';
+            
+            let phoneButton = '';
+            if (garage.phone) {
+                phoneButton = `
+                    <a href="tel:${garage.phone}" class="phone-btn" title="Call ${garage.phone}">
+                        <i class="fas fa-phone-alt"></i>
+                    </a>
+                `;
+            }
+            
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${garage.name}</strong>
+                        ${garage.phone ? `<div class="text-muted small">
+                            <span>${garage.phone}</span>
+                            ${phoneButton}
+                        </div>` : ''}
+                    </div>
+                    <span class="distance-badge">${garage.distance.toFixed(2)} km</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary route-btn" onclick="showRoute(${garage.id})">Show Route</button>
+            `;
+            
+            garagesList.appendChild(item);
+        });
+    }
+    
+    // Show route by garage ID
+    function showRoute(garageId) {
+        // Find the garage by ID
+        const garage = garagesData.find(g => g.id === garageId);
+        if (!garage) return;
+        
+        // Highlight the selected garage in the list
+        document.querySelectorAll('.garage-item').forEach(el => {
+            el.classList.remove('active');
+        });
+        const garageElement = document.getElementById(`garage-${garageId}`);
+        if (garageElement) {
+            garageElement.classList.add('active');
+        }
+        
+        // Open the garage's popup
+        garageMarkers[garageId].openPopup();
+        
+        // Show the route
+        showRouteToCoordinates(garage.lat, garage.lng);
+    }
+    
+    // For clicking "Show Route" from within a popup
+    function showRouteFromPopup(garageId) {
+        // Find the garage element and highlight it
+        const garageElement = document.getElementById(`garage-${garageId}`);
+        if (garageElement) {
+            document.querySelectorAll('.garage-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            garageElement.classList.add('active');
+            garageElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        // Find the garage data
+        const garage = garagesData.find(g => g.id === garageId);
+        if (garage) {
+            showRouteToCoordinates(garage.lat, garage.lng);
+        }
+    }
+    
+    // Show route between current location and coordinates
+    function showRouteToCoordinates(toLat, toLng) {
+        // Remove existing route if any
+        if (routingControl) {
+            map.removeControl(routingControl);
+        }
+        
+        // Create new route
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(currentLat, currentLng),
+                L.latLng(toLat, toLng)
+            ],
+            routeWhileDragging: false,
+            lineOptions: {
+                styles: [{color: '#28a745', opacity: 0.7, weight: 5}]
+            },
+            createMarker: function() { return null; }, // Don't create additional markers
+            show: false // Don't show the instructions panel by default
+        }).addTo(map);
+    }
+    
+    // Calculate distance between two points
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c;
+    }
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "admin/index.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    :root {
+        --primary: #2c3e50;
+        --secondary: #34495e;
+        --accent: #3498db;
+        --primary-fg: #fff;
+    }
+    
+    body {
+        font-family: 'Roboto', sans-serif;
+    }
+    
+    #header {
+        background: var(--primary);
+        color: var(--primary-fg);
+    }
+    
+    .module h2, .module caption, .inline-group h2 {
+        background: var(--secondary);
+    }
+    
+    a:link, a:visited {
+        color: var(--accent);
+    }
+    
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background: var(--accent);
+    }
+    
+    .dashboard .module table th {
+        width: 100%;
+    }
+    
+    .app-core .model-product .changelink, 
+    .app-core .model-category .changelink,
+    .app-core .model-order .changelink {
+        color: var(--accent);
+    }
+    
+    /* Dashboard stats */
+    .stats-container {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    
+    .stat-box {
+        flex: 1;
+        min-width: 200px;
+        margin: 10px;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-box h3 {
+        margin-top: 0;
+        color: #666;
+        font-size: 16px;
+    }
+    
+    .stat-box .count {
+        font-size: 36px;
+        font-weight: bold;
+        color: var(--accent);
+    }
+    
+    .stat-box.orders { border-top: 3px solid #27ae60; }
+    .stat-box.products { border-top: 3px solid #e74c3c; }
+    .stat-box.users { border-top: 3px solid #f39c12; }
+    .stat-box.revenue { border-top: 3px solid #8e44ad; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <div class="stat-box orders">
+        <h3>Total Orders</h3>
+        <div class="count">{{ order_count }}</div>
+    </div>
+    <div class="stat-box products">
+        <h3>Total Products</h3>
+        <div class="count">{{ product_count }}</div>
+    </div>
+    <div class="stat-box users">
+        <h3>Registered Users</h3>
+        <div class="count">{{ user_count }}</div>
+    </div>
+    <div class="stat-box revenue">
+        <h3>Total Revenue</h3>
+        <div class="count">Rs. {{ total_revenue }}</div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

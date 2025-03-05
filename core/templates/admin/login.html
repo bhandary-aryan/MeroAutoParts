@@ -1,0 +1,117 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    body {
+        background-color: #f8f9fa;
+    }
+    
+    .login {
+        background-color: white;
+        max-width: 400px;
+        margin: 100px auto;
+        padding: 30px;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .login h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+        font-size: 24px;
+    }
+    
+    .login .form-row {
+        padding: 10px 0;
+    }
+    
+    .login label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .login input[type=text], 
+    .login input[type=password] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .submit-row {
+        margin-top: 20px;
+        text-align: center;
+    }
+    
+    .submit-row input {
+        padding: 10px 20px;
+        background-color: #2c3e50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    
+    .submit-row input:hover {
+        background-color: #34495e;
+    }
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block usertools %}{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="login">
+    <h1>{{ site_header|default:_('MeroAutoParts Admin') }}</h1>
+
+    {% if form.errors and not form.non_field_errors %}
+    <p class="errornote">
+        {% blocktranslate count counter=form.errors.items|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+    </p>
+    {% endif %}
+
+    {% if form.non_field_errors %}
+    {% for error in form.non_field_errors %}
+    <p class="errornote">
+        {{ error }}
+    </p>
+    {% endfor %}
+    {% endif %}
+
+    <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+        <div class="form-row">
+            {{ form.username.errors }}
+            {{ form.username.label_tag }} {{ form.username }}
+        </div>
+        <div class="form-row">
+            {{ form.password.errors }}
+            {{ form.password.label_tag }} {{ form.password }}
+            <input type="hidden" name="next" value="{{ next }}">
+        </div>
+        {% url 'admin_password_reset' as password_reset_url %}
+        {% if password_reset_url %}
+        <div class="password-reset-link">
+            <a href="{{ password_reset_url }}">{% translate 'Forgotten your password or username?' %}</a>
+        </div>
+        {% endif %}
+        <div class="submit-row">
+            <input type="submit" value="{% translate 'Log in' %}">
+        </div>
+    </form>
+</div>
+{% endblock %}

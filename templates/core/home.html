@@ -1,0 +1,190 @@
+<!-- templates/core/home.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="jumbotron" data-aos="fade-up">
+    <div class="container">
+        <h1 class="display-4 font-weight-bold">Welcome to MeroAutoParts!</h1>
+        <p class="lead">Your one-stop shop for all vehicle parts with quality products and excellent service.</p>
+        <hr class="my-4 bg-light">
+        <p class="mb-4">Find quality parts for bikes, cars, jeeps, buses, and more. Join us today!</p>
+        {% if not user.is_authenticated %}
+            <a class="btn btn-primary btn-lg px-4 shadow" href="{% url 'signup' %}" role="button">
+                <i class="fas fa-user-plus mr-2"></i>Sign Up Now
+            </a>
+        {% else %}
+            <a class="btn btn-primary btn-lg px-4 shadow" href="{% url 'product_list' %}" role="button">
+                <i class="fas fa-shopping-bag mr-2"></i>Shop Now
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Categories Section -->
+<section class="mb-5">
+    <h2 class="mb-4 text-center font-weight-bold" data-aos="fade-up">Browse by Category</h2>
+    <div class="row">
+        {% for category in categories %}
+            <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter|add:100 }}">
+                <div class="card h-100 category-card">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-3">
+                            {% if category.name == 'Bike Parts' %}
+                                <i class="fas fa-motorcycle fa-3x text-primary"></i>
+                            {% elif category.name == 'Car Parts' %}
+                                <i class="fas fa-car fa-3x text-success"></i>
+                            {% elif category.name == 'Jeep Parts' %}
+                                <i class="fas fa-truck fa-3x text-info"></i>
+                            {% elif category.name == 'Bus Parts' %}
+                                <i class="fas fa-bus fa-3x text-warning"></i>
+                            {% elif category.name == 'Truck Parts' %}
+                                <i class="fas fa-truck-moving fa-3x text-danger"></i>
+                            {% else %}
+                                <i class="fas fa-cogs fa-3x text-secondary"></i>
+                            {% endif %}
+                        </div>
+                        <h5 class="card-title font-weight-bold">{{ category.name }}</h5>
+                        <p class="card-text text-muted">{{ category.description|truncatewords:15 }}</p>
+                        <a href="{% url 'product_list_by_category' category.slug %}" class="btn btn-outline-primary btn-block">
+                            Browse {{ category.name }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Featured Products Section -->
+<section>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="font-weight-bold" data-aos="fade-right">Featured Products</h2>
+        <a href="{% url 'product_list' %}" class="btn btn-outline-primary" data-aos="fade-left">View All</a>
+    </div>
+    
+    <div class="row">
+        {% for product in featured_products %}
+            <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="{{ forloop.counter|add:100 }}">
+                <div class="card h-100">
+                    <div class="featured-badge">
+                        <i class="fas fa-star mr-1"></i>Featured
+                    </div>
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                    {% else %}
+                        <img src="{% static 'images/no-image.png' %}" class="card-img-top" alt="{{ product.name }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title font-weight-bold">{{ product.name }}</h5>
+                        <p class="card-text text-muted mb-1">{{ product.brand }}</p>
+                        <div class="price-tag mb-3">Rs. {{ product.price }}</div>
+                        <div class="ratings mb-3">
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= product.average_rating %}
+                                    <i class="fas fa-star"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="product-buttons">
+                            <a href="{{ product.get_absolute_url }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-info-circle mr-1"></i>Details
+                            </a>
+                            <form method="post" action="{% url 'add_to_cart' product.id %}" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="fas fa-shopping-cart mr-1"></i>Buy Now
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Brands Section -->
+<section class="mt-5 text-center" data-aos="fade-up">
+    <h2 class="mb-4 font-weight-bold">Our Brands</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="d-flex flex-wrap justify-content-center align-items-center">
+                <!-- Add logos of brands you carry -->
+                <img src="https://logo.clearbit.com/bosch.com" alt="Bosch" class="m-3 brand-icon">
+                <img src="https://logo.clearbit.com/exide.com" alt="Exide" class="m-3 brand-icon">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Logo_of_Minda_Industries_Limited.svg/120px-Logo_of_Minda_Industries_Limited.svg.png" alt="Minda" class="m-3 brand-icon">
+                <img src="https://logo.clearbit.com/ebcbrakes.com" alt="EBC" class="m-3 brand-icon">
+                <img src="https://logo.clearbit.com/denso.com" alt="Denso" class="m-3 brand-icon">
+                <img src="https://logo.clearbit.com/ngkntk.com" alt="NGK" class="m-3 brand-icon">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials -->
+<section class="mt-5" data-aos="fade-up">
+    <h2 class="mb-4 text-center font-weight-bold">What Our Customers Say</h2>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="ratings mb-3 text-center">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <p class="card-text text-center">"Great quality parts delivered on time. Excellent customer service!"</p>
+                    <div class="text-center mt-3">
+                        <h6 class="font-weight-bold mb-0">John Doe</h6>
+                        <small class="text-muted">Car Owner</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="ratings mb-3 text-center">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                    <p class="card-text text-center">"Found exactly what I needed for my vintage bike. Very impressed!"</p>
+                    <div class="text-center mt-3">
+                        <h6 class="font-weight-bold mb-0">Sarah Johnson</h6>
+                        <small class="text-muted">Bike Enthusiast</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="ratings mb-3 text-center">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <p class="card-text text-center">"Best prices around and the quality never disappoints. Highly recommend!"</p>
+                    <div class="text-center mt-3">
+                        <h6 class="font-weight-bold mb-0">Ramesh Shrestha</h6>
+                        <small class="text-muted">Mechanic</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

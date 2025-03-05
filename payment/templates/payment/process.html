@@ -1,0 +1,102 @@
+<!-- payment/templates/payment/process.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Payment - Khalti{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Complete Your Payment</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Order Summary</h5>
+                            <p><strong>Order #:</strong> {{ order.id }}</p>
+                            <p><strong>Total Amount:</strong> Rs. {{ order.total_amount }}</p>
+                            <p><strong>Date:</strong> {{ order.created_at|date:"F j, Y" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Payment Method</h5>
+                            <div class="text-center mb-4">
+                                <img src="images/Khalti-logo.png" alt="Khalti" width="150">
+                            </div>
+                            <p class="text-center">Safe and secure payments with Khalti.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button id="payment-button" class="btn btn-purple btn-lg">Pay with Khalti</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://khalti.s3.ap-south-1.amazonaws.com/KPG/dist/2020.12.22.0.0.0/khalti-checkout.iffe.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var config = {
+            // replace this key with yours
+            "publicKey": "{{ khalti_public_key }}",
+            "productIdentity": "{{ order.id }}",
+            "productName": "Order #{{ order.id }}",
+            "productUrl": "{{ website_url }}",
+            "eventHandler": {
+                onSuccess (payload) {
+                    // hit merchant api for initiating verification
+                    console.log(payload);
+                    
+                    // Send token to your server
+                    fetch('/payment/verify/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            token: payload.token,
+                            amount: payload.amount,
+                            order_id: {{ order.id }}
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            alert("Payment verification failed. Please try again.");
+                            console.error(data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert("Payment verification failed. Please try again.");
+                    });
+                },
+                onError (error) {
+                    console.log(error);
+                    window.location.href = "{% url 'payment_failed' order.id %}";
+                },
+                onClose () {
+                    console.log('widget is closing');
+                }
+            },
+            "paymentPreference": ["KHALTI"],
+        };
+
+        var checkout = new KhaltiCheckout(config);
+        var btn = document.getElementById("payment-button");
+        btn.onclick = function () {
+            // minimum transaction amount must be 10, i.e 1000 in paisa
+            checkout.show({amount: {{ order.total_amount }} * 100}); // Convert Rs to paisa
+        }
+    });
+</script>
+{% endblock %}

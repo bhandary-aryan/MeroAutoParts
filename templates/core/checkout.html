@@ -1,0 +1,58 @@
+<!-- templates/core/checkout.html -->
+{% extends 'core/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Checkout</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <h5 class="mb-3">Shipping Information</h5>
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary mt-3">Place Order</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Order Summary</h4>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <tbody>
+                        {% for item in cart.items.all %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div>
+                                            <p class="mb-0 font-weight-bold">{{ item.product.name }}</p>
+                                            <small class="text-muted">{{ item.quantity }} x Rs. {{ item.product.price }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-right">Rs. {{ item.get_total }}</td>
+                            </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="font-weight-bold">Total</td>
+                            <td class="text-right font-weight-bold">Rs. {{ cart.get_total_price }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <a href="{% url 'cart_detail' %}" class="btn btn-outline-secondary btn-block">Edit Cart</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
