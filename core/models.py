@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -10,9 +11,25 @@ class User(AbstractUser):
     address2 = models.CharField(max_length=255, blank=True, null=True)
     phone_number = models.CharField(max_length=15)
     profile_picture = models.ImageField(upload_to='profile_pics', default='default.jpg')
-
+    
+    # Fields for email verification
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=100, blank=True, null=True)
+    
     def __str__(self):
         return self.username
+    
+    def get_full_name(self):
+        """Return the user's full name, or username if no name is set"""
+        if self.first_name or self.last_name:
+            return f"{self.first_name} {self.last_name}".strip()
+        return self.username
+    
+    def generate_verification_token(self):
+        """Generate a random token for email verification"""
+        self.verification_token = get_random_string(64)
+        self.save()
+        return self.verification_token
     
 
 class Category(models.Model):

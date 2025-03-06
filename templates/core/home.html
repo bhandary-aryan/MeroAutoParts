@@ -95,12 +95,16 @@
                             <a href="{{ product.get_absolute_url }}" class="btn btn-primary btn-sm">
                                 <i class="fas fa-info-circle mr-1"></i>Details
                             </a>
-                            <form method="post" action="{% url 'add_to_cart' product.id %}" class="m-0">
+
+                            <a href="{{ product.get_absolute_url }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-info-circle mr-1"></i>Buy Now
+                            </a>
+                            {% comment %} <form method="post" action="{% url 'add_to_cart' product.id %}" class="m-0">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-success btn-sm">
                                     <i class="fas fa-shopping-cart mr-1"></i>Buy Now
                                 </button>
-                            </form>
+                            </form> {% endcomment %}
                         </div>
                     </div>
                 </div>

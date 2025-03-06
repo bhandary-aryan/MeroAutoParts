@@ -1,7 +1,7 @@
 # core/views.py
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from .forms import SignUpForm, LoginForm, UserUpdateForm
+from .forms import SignUpForm, LoginForm, UserUpdateForm, User
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .models import Category, Product, Review, Cart, CartItem
@@ -9,6 +9,13 @@ from .forms import ReviewForm
 from django.db import models
 from .models import Category, Product, Review, Cart, CartItem, Order, OrderItem
 from .forms import SignUpForm, LoginForm, UserUpdateForm, ReviewForm, CheckoutForm
+
+# Email verification imports
+from django.template.loader import render_to_string
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import EmailMessage
 
 
 def home(request):
@@ -20,15 +27,67 @@ def home(request):
     })
 
 def signup(request):
-    if request.method == 'POST':
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('home')
+    try:
+        if request.method == 'POST':
+            form = SignUpForm(request.POST)
+            if form.is_valid():
+                user = form.save()
+                
+                # Skip email verification for now
+                user.email_verified = True
+                user.save()
+                
+                login(request, user)
+                messages.success(request, "Registration successful! Welcome to MeroAutoParts.")
+                return redirect('home')
+        else:
+            form = SignUpForm()
+        
+        return render(request, 'core/signup.html', {'form': form})
+    
+    except Exception as e:
+        print(f"Error in signup view: {e}")
+        messages.error(request, "An error occurred during signup. Please try again.")
+        return redirect('signup')
+    
+
+def send_verification_email(request, user):
+    """Send an email verification link to the user"""
+    token = user.generate_verification_token()
+    
+    current_site = get_current_site(request)
+    mail_subject = 'Activate your MeroAutoParts account'
+    message = render_to_string('core/email/account_verification_email.html', {
+        'user': user,
+        'domain': current_site.domain,
+        'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+        'token': token,
+    })
+    
+    to_email = user.email
+    email = EmailMessage(mail_subject, message, to=[to_email])
+    email.content_subtype = "html"
+    email.send()
+
+def verify_email(request, uidb64, token):
+    """Handle email verification link"""
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+    
+    if user is not None and user.verification_token == token:
+        user.email_verified = True
+        user.verification_token = None
+        user.save()
+        
+        login(request, user)
+        messages.success(request, 'Your email has been verified! Your account is now active.')
+        return redirect('home')
     else:
-        form = SignUpForm()
-    return render(request, 'core/signup.html', {'form': form})
+        messages.error(request, 'Activation link is invalid or has expired!')
+        return redirect('home')
 
 def login_view(request):
     if request.method == 'POST':
@@ -38,8 +97,15 @@ def login_view(request):
             password = form.cleaned_data.get('password')
             user = authenticate(username=username, password=password)
             if user is not None:
+                # Check if email is verified
+                if hasattr(user, 'email_verified') and not user.email_verified:
+                    messages.warning(request, 'Please verify your email address before logging in. Check your inbox for the verification link.')
+                    return redirect('login')
+                
                 login(request, user)
                 return redirect('home')
+            else:
+                messages.error(request, 'Invalid username or password.')
     else:
         form = LoginForm()
     return render(request, 'core/login.html', {'form': form})
@@ -54,6 +120,7 @@ def profile(request):
         form = UserUpdateForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
             form.save()
+            messages.success(request, 'Your profile has been updated successfully!')
             return redirect('profile')
     else:
         form = UserUpdateForm(instance=request.user)
@@ -235,8 +302,9 @@ def checkout(request):
             return redirect('payment_process', order_id=order.id)
     else:
         # Pre-fill the form with user information
+        full_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
         initial_data = {
-            'full_name': f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            'full_name': full_name,
             'email': request.user.email,
             'phone': request.user.phone_number,
             'address': request.user.address1,
