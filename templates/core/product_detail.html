@@ -61,6 +61,85 @@
     </div>
 </div>
 
+<!-- Recommended Garages Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Recommended Garages for Installation</h4>
+            </div>
+            <div class="card-body">
+                {% if recommended_garages %}
+                    <div class="row">
+                        {% for recommendation in recommended_garages %}
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ recommendation.garage.name }}</h5>
+                                        <div class="garage-rating mb-2">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= recommendation.garage.average_rating %}
+                                                    <i class="fas fa-star text-warning"></i>
+                                                {% else %}
+                                                    <i class="far fa-star text-warning"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                            <span class="text-muted">({{ recommendation.garage.total_reviews }})</span>
+                                        </div>
+                                        <p class="card-text">
+                                            <i class="fas fa-map-marker-alt text-danger"></i> 
+                                            {{ recommendation.garage.address }}<br>
+                                            <small class="text-muted">{{ recommendation.distance|floatformat:1 }} km away</small>
+                                        </p>
+                                        <p class="card-text">
+                                            <i class="fas fa-tools text-primary"></i> 
+                                            {% if recommendation.expertise_level == 4 %}
+                                                <span class="badge bg-primary text-white">Specialist</span>
+                                            {% elif recommendation.expertise_level == 3 %}
+                                                <span class="badge bg-success text-white">Advanced</span>
+                                            {% elif recommendation.expertise_level == 2 %}
+                                                <span class="badge bg-info text-white">Intermediate</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary text-white">Basic</span>
+                                            {% endif %}
+                                        </p>
+                                        {% if recommendation.garage.operating_hours %}
+                                        <p class="card-text">
+                                            <i class="fas fa-clock text-info"></i> 
+                                            {{ recommendation.garage.operating_hours }}
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-footer bg-transparent">
+                                        <div class="d-grid gap-2">
+                                            <a href="tel:{{ recommendation.garage.phone_number }}" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-phone"></i> {{ recommendation.garage.phone_number }}
+                                            </a>
+                                            <a href="{% url 'garage_detail' recommendation.garage.id %}" class="btn btn-outline-secondary btn-sm">
+                                                <i class="fas fa-info-circle"></i> View Details
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'garage_finder' %}?part_id={{ product.id }}" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Find More Garages
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No specialized garages found nearby for this part. 
+                        <a href="{% url 'nearby_garages' %}">View all garages</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row mt-5">
     <div class="col-12">
         <div class="card">
@@ -104,4 +183,50 @@
         </div>
     </div>
 </div>
+
+<!-- User Location Script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add a flag to prevent infinite reloads
+        const locationAlreadyRequested = sessionStorage.getItem('locationRequested');
+        
+        // Only request location if we haven't done so already in this session
+        if (!locationAlreadyRequested) {
+            // Check if browser supports geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    // Mark that we've requested location
+                    sessionStorage.setItem('locationRequested', 'true');
+                    
+                    // Save location to session via AJAX
+                    fetch('{% url "save_location" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Reload only once
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.log("Error saving location:", error);
+                    });
+                }, function(error) {
+                    // Even if there's an error, mark as requested to prevent loops
+                    sessionStorage.setItem('locationRequested', 'true');
+                    console.log("Error getting location:", error);
+                });
+            }
+        }
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,183 @@
+<!-- locations/templates/locations/garage_detail.html -->
+{% extends 'core/base.html' %}
+
+{% block title %}{{ garage.name }} - MeroAutoParts{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="mb-3">{{ garage.name }}</h1>
+            
+            <div class="garage-info mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p>
+                                    <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                    {{ garage.address }}
+                                </p>
+                                <p>
+                                    <i class="fas fa-phone text-primary me-2"></i>
+                                    <a href="tel:{{ garage.phone_number }}">{{ garage.phone_number }}</a>
+                                </p>
+                                {% if garage.email %}
+                                <p>
+                                    <i class="fas fa-envelope text-secondary me-2"></i>
+                                    <a href="mailto:{{ garage.email }}">{{ garage.email }}</a>
+                                </p>
+                                {% endif %}
+                                {% if garage.operating_hours %}
+                                <p>
+                                    <i class="fas fa-clock text-info me-2"></i>
+                                    {{ garage.operating_hours }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <p>
+                                    <i class="fas fa-star text-warning me-2"></i>
+                                    {{ garage.average_rating|floatformat:1 }} / 5.0
+                                    <small class="text-muted">({{ garage.total_reviews }} reviews)</small>
+                                </p>
+                                <p>
+                                    <i class="fas fa-route text-success me-2"></i>
+                                    {{ distance|floatformat:1 }} km from your location
+                                </p>
+                                {% if garage.is_verified %}
+                                <p>
+                                    <i class="fas fa-check-circle text-primary me-2"></i>
+                                    Verified Garage
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Description -->
+            <div class="garage-description mb-4">
+                <h4>About This Garage</h4>
+                <p>{{ garage.description|default:"No description available." }}</p>
+            </div>
+            
+            <!-- Expertise Areas -->
+            <div class="expertise-areas mb-4">
+                <h4>Specializations</h4>
+                {% if expertise_areas %}
+                    <div class="row">
+                        {% for expertise in expertise_areas %}
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2">{{ expertise.part_category.name }}</span>
+                                    {% if expertise.expertise_level == 4 %}
+                                        <span class="badge bg-primary">Specialist</span>
+                                    {% elif expertise.expertise_level == 3 %}
+                                        <span class="badge bg-success">Advanced</span>
+                                    {% elif expertise.expertise_level == 2 %}
+                                        <span class="badge bg-info">Intermediate</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Basic</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">No specializations listed.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Reviews -->
+            <div class="garage-reviews">
+                <h4>Reviews</h4>
+                {% if reviews %}
+                    {% for review in reviews %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h5 class="card-title">{{ review.user.get_full_name|default:review.user.username }}</h5>
+                                        <div class="ratings mb-2">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= review.rating %}
+                                                    <i class="fas fa-star text-warning"></i>
+                                                {% else %}
+                                                    <i class="far fa-star text-warning"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ review.created_at|date:"F d, Y" }}</small>
+                                </div>
+                                <p class="card-text">{{ review.comment }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No reviews yet.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Map -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Location</h5>
+                    <div id="garage-map" style="height: 300px;"></div>
+                </div>
+            </div>
+            
+            <!-- Contact Action -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Contact This Garage</h5>
+                    <div class="d-grid gap-2">
+                        <a href="tel:{{ garage.phone_number }}" class="btn btn-primary">
+                            <i class="fas fa-phone me-2"></i>Call Now
+                        </a>
+                        {% if garage.email %}
+                        <a href="mailto:{{ garage.email }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-envelope me-2"></i>Send Email
+                        </a>
+                        {% endif %}
+                        <a href="https://www.openstreetmap.org/directions?from=&to={{ garage.latitude }}%2C{{ garage.longitude }}" 
+                           class="btn btn-outline-success" target="_blank">
+                            <i class="fas fa-directions me-2"></i>Get Directions
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- OpenStreetMap with Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the map
+        var map = L.map('garage-map').setView([{{ garage.latitude }}, {{ garage.longitude }}], 15);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add a marker at the garage location
+        L.marker([{{ garage.latitude }}, {{ garage.longitude }}])
+            .addTo(map)
+            .bindPopup("<strong>{{ garage.name }}</strong><br>{{ garage.address }}")
+            .openPopup();
+    });
+</script>
+{% endblock %}

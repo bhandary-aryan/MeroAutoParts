@@ -9,6 +9,8 @@ from .forms import ReviewForm
 from django.db import models
 from .models import Category, Product, Review, Cart, CartItem, Order, OrderItem
 from .forms import SignUpForm, LoginForm, UserUpdateForm, ReviewForm, CheckoutForm
+from locations.utils import get_recommended_garages
+
 
 # Email verification imports
 from django.template.loader import render_to_string
@@ -164,17 +166,33 @@ def product_detail(request, category_slug, product_slug):
     reviews = product.reviews.all()
     review_form = ReviewForm()
     
+    # Get user's location from session or IP geolocation
+    # For demonstration, let's use default coordinates for Kathmandu
+    user_lat = request.session.get('user_lat', 27.7172)
+    user_lon = request.session.get('user_lon', 85.3240)
+    
+    # Get recommended garages
+    recommended_garages = get_recommended_garages(
+        part_category_id=product.category.id,
+        user_lat=user_lat,
+        user_lon=user_lon,
+        limit=3
+    )
+    
     # Check if the user has already reviewed this product
     user_has_reviewed = False
     if request.user.is_authenticated:
         user_has_reviewed = reviews.filter(user=request.user).exists()
     
-    return render(request, 'core/product_detail.html', {
+    context = {
         'product': product,
         'reviews': reviews,
         'review_form': review_form,
-        'user_has_reviewed': user_has_reviewed
-    })
+        'user_has_reviewed': user_has_reviewed,
+        'recommended_garages': recommended_garages,
+    }
+    
+    return render(request, 'core/product_detail.html', context)
 
 @login_required
 def add_review(request, product_id):
@@ -352,3 +370,4 @@ def order_detail(request, order_id):
 def order_list(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'core/order_list.html', {'orders': orders})
+
